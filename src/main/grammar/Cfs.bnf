@@ -1,0 +1,169 @@
+{
+  parserClass="com.saliso.cfs.parser.CfsParser"
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+  psiClassPrefix="Cfs"
+  psiImplClassSuffix="Impl"
+  psiPackage="com.saliso.cfs.psi"
+  psiImplPackage="com.saliso.cfs.psi.impl"
+  elementTypeHolderClass="com.saliso.cfs.psi.CfsElementTypes"
+  elementTypeClass="com.saliso.cfs.CfsElementType"
+  tokenTypeClass="com.saliso.cfs.CfsTokenType"
+  extends(".*_expr")=expr
+
+  tokens=[
+    LINE_COMMENT='regexp://[^\r\n]*'
+    DOC_COMMENT='regexp:///[^\r\n]*'
+    BLOCK_COMMENT='regexp:/\*.*\*/'
+    STRING='regexp:"[^"]*"'
+    NUMBER='regexp:[0-9][0-9_]*(\.[0-9]+)?'
+    IDENT='regexp:[A-Za-z_][A-Za-z0-9_]*'
+
+    KW_PUB='pub' KW_FN='fn' KW_LET='let' KW_VAR='var' KW_STRUCT='struct'
+    KW_IMPL='impl' KW_INTERFACE='interface' KW_FOR='for' KW_IN='in'
+    KW_IF='if' KW_ELSE='else' KW_WHILE='while' KW_LOOP='loop'
+    KW_RETURN='return' KW_BREAK='break' KW_CONTINUE='continue'
+    KW_SELF='self' KW_TRUE='true' KW_FALSE='false'
+
+    FIELD_OFFSET='regexp:\.@[0-9][0-9_]*'
+    FIELD_INDEX='regexp:\.#[0-9][0-9_]*'
+    KW_AS='as' KW_AS_BANG='as!' KW_ASSERT='assert' KW_STATIC='static' KW_INIT='init'
+    KW_SIZEOF='sizeof' KW_TYPEOF='typeof'
+
+    LBRACE='{' RBRACE='}' LPAREN='(' RPAREN=')' LBRACKET='[' RBRACKET=']'
+    COMMA=',' SEMICOLON=';' DOT='.' COLON=':' COLONCOLON='::'
+    PLUS='+' MINUS='-' STAR='*' SLASH='/' PERCENT='%' BANG='!' AMP='&'
+    EQ='=' EQEQ='==' NEQ='!=' LT='<' LE='<=' GT='>' GE='>=' ANDAND='&&' OROR='||'
+  ]
+}
+
+file ::= item*
+private item ::= (fn_item | struct_item | interface_item | impl_item | static_assert_stmt) { recoverWhile=item_recover }
+private item_recover ::= !('pub' | 'fn' | 'struct' | 'interface' | 'impl' | 'static')
+
+visibility ::= 'pub'
+
+// ---- items ----
+fn_item ::= visibility? fn_signature (block | ';') { pin=2 }
+fn_signature ::= 'fn' fn_name generic_params? '(' param_list? ')' return_type? { pin=1 }
+fn_name ::= IDENT
+private param_list ::= param (',' param)* ','?
+param ::= self_param | param_name ':' type_ref
+self_param ::= '&'? 'self'
+param_name ::= IDENT
+return_type ::= type_ref
+
+struct_item ::= visibility? 'struct' type_name generic_params? (struct_body | tuple_fields ';' | ';') { pin=2 }
+struct_body ::= '{' (field (',' field)* ','?)? '}'
+field ::= visibility? field_name ':' type_ref
+field_name ::= IDENT
+tuple_fields ::= '(' (tuple_field (',' tuple_field)* ','?)? ')'
+tuple_field ::= visibility? type_ref
+
+interface_item ::= visibility? 'interface' type_name generic_params? supertraits? '{' fn_item* '}' { pin=2 }
+supertraits ::= ':' bound_list
+bound_list ::= type_ref ('+' type_ref)*
+
+impl_item ::= 'impl' generic_params? type_ref ('for' type_ref)? '{' fn_item* '}' { pin=1 }
+
+generic_params ::= '<' type_param (',' type_param)* ','? '>'
+type_param ::= type_name (':' bound_list)?
+type_name ::= IDENT
+
+// ---- types: the only place identifiers count as types ----
+private type_ref ::= ref_type | array_type | tuple_type | path_type
+ref_type ::= '&' type_ref
+array_type ::= '[' type_ref (';' expr)? ']'
+tuple_type ::= '(' (type_ref (',' type_ref)* ','?)? ')'
+path_type ::= type_segment ('::' type_segment)*
+type_segment ::= IDENT generic_args?
+generic_args ::= '<' generic_arg (',' generic_arg)* ','? '>'
+private generic_arg ::= type_ref | NUMBER
+
+// ---- statements ----
+block ::= '{' stmt* '}' { pin=1 }
+private stmt ::= (';' | var_decl | assert_stmt | static_assert_stmt | init_stmt | expr_stmt) { recoverWhile=stmt_recover }
+private stmt_recover ::= !('}' | ';' | 'let' | 'var' | 'return' | 'if' | 'while'
+                         | 'for' | 'loop' | 'break' | 'continue'
+                         | 'assert' | 'static' | 'init' | 'sizeof' | 'typeof'
+                         | IDENT | NUMBER | STRING | 'self' | 'true' | 'false'
+                         | '(' | '{' | '!' | '-' | '*' | '&')
+
+assert_stmt ::= 'assert' expr ';' { pin=1 }
+static_assert_stmt ::= 'static' 'assert' expr ';' { pin=2 }
+
+init_stmt ::= 'init' (init_decl | expr) ';' { pin=1 }
+init_decl ::= var_name ':' type_ref
+
+var_decl ::= ('let' | 'var') var_name (':' type_ref)? ('=' expr)? ';' { pin=1 }
+var_name ::= IDENT
+expr_stmt ::= expr ';'?
+
+// ---- expressions (lowest priority first) ----
+expr ::= assign_expr
+       | or_expr
+       | and_expr
+       | eq_expr
+       | rel_expr
+       | add_expr
+       | mul_expr
+       | cast_expr
+       | bitcast_expr
+       | unary_expr
+       | call_expr
+       | field_expr
+       | field_offset_expr
+       | field_index_expr
+       | index_expr
+       | literal_expr
+       | struct_expr
+       | path_expr
+       | paren_expr
+       | if_expr
+       | while_expr
+       | loop_expr
+       | for_expr
+       | return_expr
+       | break_expr
+       | continue_expr
+       | block_expr
+       | sizeof_expr
+       | typeof_expr
+
+assign_expr ::= expr '=' expr { rightAssociative=true }
+or_expr ::= expr '||' expr
+and_expr ::= expr '&&' expr
+eq_expr ::= expr ('==' | '!=') expr
+rel_expr ::= expr ('<=' | '<' | ('>=') | '>') expr
+add_expr ::= expr ('+' | '-') expr
+mul_expr ::= expr ('*' | '/' | '%') expr
+unary_expr ::= ('!' | '-' | '*' | '&') expr
+call_expr ::= expr arg_list
+arg_list ::= '(' (expr (',' expr)* ','?)? ')'
+field_expr ::= expr '.' IDENT
+index_expr ::= expr '[' expr ']'
+
+cast_expr ::= expr 'as' type_ref
+bitcast_expr ::= expr 'as!' type_ref
+field_offset_expr ::= expr FIELD_OFFSET
+field_index_expr ::= expr FIELD_INDEX
+
+sizeof_expr ::= 'sizeof' '(' type_ref ')' { pin=1 }
+typeof_expr ::= 'typeof' '(' type_ref ')' { pin=1 }
+
+literal_expr ::= NUMBER | STRING | 'true' | 'false'
+paren_expr ::= '(' expr ')'
+path_expr ::= path
+struct_expr ::= path &('{' IDENT ':') '{' field_init (',' field_init)* ','? '}'
+field_init ::= IDENT ':' expr
+private path ::= path_segment ('::' path_segment)*
+path_segment ::= (IDENT | 'self') ('::' generic_args)?
+
+if_expr ::= 'if' expr block ('else' (if_expr | block))?
+while_expr ::= 'while' expr block
+loop_expr ::= 'loop' block
+for_expr ::= 'for' var_name 'in' expr block
+return_expr ::= 'return' return_value?
+private return_value ::= expr
+break_expr ::= 'break'
+continue_expr ::= 'continue'
+block_expr ::= block

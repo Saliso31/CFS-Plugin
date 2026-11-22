@@ -2,18 +2,28 @@
 <idea-plugin>
     <id>com.github.saliso31.cfsplugin</id>
     <name>CFS-Plugin</name>
-    <vendor>saliso31</vendor>
-    <description><![CDATA[
-        <p><b>CFS-Plugin</b> is a repository that provides a pure template to make it easier to create a new plugin project.</p>
-        <p>The main goal of this template is to speed up the setup phase of plugin development for both new and experienced developers by preconfiguring the project scaffold and CI, linking to the proper documentation pages, and keeping everything organized.</p>
-    ]]></description>
+    <vendor>saliso</vendor>
+    <description>""</description>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
+    <resource-bundle>messages.CFS</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.saliso31.cfsplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.saliso31.cfsplugin.startup.MyProjectActivity" />
+        <fileType name="CFS File"
+                  implementationClass="com.saliso.cfs.CfsFileType"
+                  fieldName="INSTANCE"
+                  language="CFS"
+                  extensions="cfs"/>
+        <lang.parserDefinition language="CFS" implementationClass="com.saliso.cfs.CfsParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="CFS" implementationClass="com.saliso.cfs.CfsSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="com.saliso.cfs.CfsColorSettingsPage"/>
+        <annotator language="CFS" implementationClass="com.saliso.cfs.CfsAnnotator"/>
+        <completion.contributor
+                language="CFS"
+                implementationClass="com.saliso.cfs.CfsCompletionContributor"/>
+        <lang.braceMatcher language="CFS" implementationClass="com.saliso.cfs.CfsBraceMatcher"/>
+        <lang.formatter language="CFS" implementationClass="com.saliso.cfs.CfsFormattingModelBuilder"/>
+        <enterHandlerDelegate implementation="com.saliso.cfs.CfsEnterHandler"/>
     </extensions>
 </idea-plugin>
