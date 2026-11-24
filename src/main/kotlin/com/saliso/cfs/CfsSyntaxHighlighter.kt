@@ -40,6 +40,7 @@ class CfsSyntaxHighlighter : SyntaxHighlighterBase() {
         val PARAM = createTextAttributesKey("CFS_PARAM", D.PARAMETER)
         val REASSIGNED_PARAM = createTextAttributesKey("CFS_REASSIGNED_PARAM", D.REASSIGNED_PARAMETER)
         val FIELD_DECL = createTextAttributesKey("CFS_FIELD_DECL", D.INSTANCE_FIELD)
+        val NAMESPACE = createTextAttributesKey("CFS_NAMESPACE", D.IDENTIFIER)
         val BAD = createTextAttributesKey("CFS_BAD", HighlighterColors.BAD_CHARACTER)
 
         private val ATTRS: Map<IElementType, Array<TextAttributesKey>> = buildMap {

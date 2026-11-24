@@ -24,8 +24,26 @@ class CfsAnnotator : Annotator {
             is CfsVarName -> mark(holder, element, CfsSyntaxHighlighter.DECL_NAME)
 
             is CfsTypeName -> mark(holder, element, CfsSyntaxHighlighter.TYPE)
-            is CfsTypeSegment -> element.node.findChildByType(CfsElementTypes.IDENT)
-                ?.let { mark(holder, it.psi, CfsSyntaxHighlighter.TYPE) }
+            is CfsTypeSegment -> {
+                val isLast = PsiTreeUtil.getNextSiblingOfType(element, CfsTypeSegment::class.java) == null
+                element.node.findChildByType(CfsElementTypes.IDENT)?.let {
+                    mark(holder, it.psi, if (isLast) CfsSyntaxHighlighter.TYPE else CfsSyntaxHighlighter.NAMESPACE)
+                }
+            }
+
+            is CfsPathSegment -> {
+                val ident = element.node.findChildByType(CfsElementTypes.IDENT)?.psi ?: return
+                val next = PsiTreeUtil.getNextSiblingOfType(element, CfsPathSegment::class.java)
+                val afterNext = next?.let { PsiTreeUtil.getNextSiblingOfType(it, CfsPathSegment::class.java) }
+                val key = when {
+                    element.parent is CfsStructExpr ->
+                        if (next == null) CfsSyntaxHighlighter.TYPE else CfsSyntaxHighlighter.NAMESPACE
+                    next == null -> return                          // the member itself
+                    afterNext == null -> CfsSyntaxHighlighter.TYPE  // Type::member
+                    else -> CfsSyntaxHighlighter.NAMESPACE
+                }
+                mark(holder, ident, key)
+            }
 
             is CfsCallExpr -> calleeName(element)?.let { mark(holder, it, CfsSyntaxHighlighter.CALL) }
 
